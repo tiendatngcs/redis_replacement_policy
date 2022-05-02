@@ -53,6 +53,10 @@
  * Empty entries have the key pointer set to NULL. */
 #define EVPOOL_SIZE 16
 #define EVPOOL_CACHED_SDS_SIZE 255
+#define MINICACHE_SIZE 128
+#define THRESHOLD 1
+#define MODULUS 200
+#define SIZE 20
 struct evictionPoolEntry {
     unsigned long long idle;    /* Object idle time (inverse frequency for LFU) */
     sds key;                    /* Key name. */
@@ -61,6 +65,104 @@ struct evictionPoolEntry {
 };
 
 static struct evictionPoolEntry *EvictionPoolLRU;
+
+// Dat mod 
+
+static struct evictionPoolEntry *EvictionPoolLRU;
+
+
+struct hash_node {
+    sds key;
+    struct hash_node *next;
+};
+
+struct hash_table_row {
+    struct hash_node *head;
+    struct hash_node *tail;
+};
+
+struct hash_table_row *HASH_TABLE1;  // hash table is array of hash_table_row
+
+// struct hash_table_row* init_hash_table(int array_size) {
+//     struct hash_table_row* hash_table = malloc(sizeof(struct hash_table_row) * SIZE);
+//     int i;
+//     for (i = 0; i < SIZE; i++) {
+//         struct hash_node *node = malloc(sizeof(struct hash_node));
+//         node->next = NULL;
+//         hash_table[i].head = node;
+//         hash_table[i].tail = node;
+//     }
+//     return hash_table;
+// }
+
+// void push_to_hash_table(sds key) {
+
+// }
+
+struct miniCache {
+    struct hash_table_row Cache[SIZE];               // array of hash table row
+    struct evictionPoolEntry EvictionPool[EVPOOL_SIZE];     // 
+    int hits; 
+    int misses;
+    int size;
+};
+
+struct DLRU {
+    struct miniCache *cache1;
+    struct miniCache *cache2;
+    struct miniCache *cache5;
+    struct miniCache *cache10;
+    struct miniCache *cache16;
+};
+
+static struct DLRU *dlru;
+
+struct miniCache* init_a_mini_cache(){
+    struct miniCache *mini_cache1;
+    mini_cache1 = zmalloc(sizeof(struct miniCache));
+
+    for(int i = 0; i < SIZE; i++) {
+        // struct hash_node *node = zmalloc(sizeof(struct hash_node));
+        // node->next = NULL;
+        // mini_cache1->Cache[i].head = node;
+        // mini_cache1->Cache[i].tail = node;
+
+        mini_cache1->Cache[i].head = NULL;
+        mini_cache1->Cache[i].tail = NULL;
+    }
+    for(int i = 0; i < EVPOOL_SIZE; i++) {
+        mini_cache1->EvictionPool[i].idle = 0;
+        mini_cache1->EvictionPool[i].key = NULL;
+        mini_cache1->EvictionPool[i].cached = sdsnewlen(NULL,EVPOOL_CACHED_SDS_SIZE);
+        mini_cache1->EvictionPool[i].dbid = 0;
+    }
+    mini_cache1->hits = 0;
+    mini_cache1->misses = 0;
+    mini_cache1->size = 0;
+    return mini_cache1;
+}
+
+void DLRUAlloc(void) {
+    struct DLRU *temp = zmalloc(sizeof(struct DLRU));
+
+    
+
+
+    temp->cache1 = init_a_mini_cache();
+    temp->cache2 = init_a_mini_cache();
+    temp->cache5 = init_a_mini_cache();
+    temp->cache10 = init_a_mini_cache();
+    temp->cache16 = init_a_mini_cache();
+    dlru = temp;
+}
+
+int get_hash_with_key(int value, int table_size) {
+    return value % table_size;
+}
+
+// Dat mod ends
+
+
 
 /* ----------------------------------------------------------------------------
  * Implementation of eviction, aging and LRU
