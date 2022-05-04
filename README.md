@@ -1,5 +1,21 @@
 This README is just a fast *quick start* document. You can find more detailed documentation at [redis.io](https://redis.io).
 
+Dynamically Configuring LRU Replacement Policy in Redis
+-------------------------------------------------------
+**Project recreation**
+* Build and install Redis with the official guidance in the following section.
+* Download MSR Cambridge Traces here[http://iotta.snia.org/traces/block-io/388] to your desired machine 
+* Extract the trace file
+* Run my benchmarking script which will automatically
+    * Run install redis-server in the background
+    * setting up conf to anable key eviction and using aprox-lru
+    * Set and get keys using each line from the MSR trace CSV file
+    * Writing stats to log file every  <stats_collecting_cycle_value> references
+```bash
+bash ./run_banchmark <MSR_trace.csv> <stats_collecting_cycle_value> <maxmemory>
+```
+
+
 What is Redis?
 --------------
 
