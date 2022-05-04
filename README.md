@@ -4,7 +4,7 @@ Dynamically Configuring LRU Replacement Policy in Redis
 -------------------------------------------------------
 **Project recreation**
 * Build and install Redis with the official guidance in the following section.
-* Download MSR Cambridge Traces here[http://iotta.snia.org/traces/block-io/388] to your desired machine 
+* Download MSR Cambridge Traces [here](http://iotta.snia.org/traces/block-io/388) to your desired machine 
 * Extract the trace file
 * Run my benchmarking script which will automatically
     * Run install redis-server in the background
@@ -12,7 +12,7 @@ Dynamically Configuring LRU Replacement Policy in Redis
     * Set and get keys using each line from the MSR trace CSV file
     * Writing stats to log file every  <stats_collecting_cycle_value> references
 ```bash
-bash ./run_banchmark <MSR_trace.csv> <stats_collecting_cycle_value> <maxmemory>
+bash ./run_banchmark.sh <MSR_trace.csv> <stats_collecting_cycle_value> <maxmemory>
 ```
 
 
