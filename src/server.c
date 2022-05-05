@@ -83,6 +83,7 @@ double R_Zero, R_PosInf, R_NegInf, R_Nan;
 
 /* Global vars */
 struct redisServer server; /* Server global state */
+static DLRU dlru;    /* dlru global state */
 
 /*============================ Internal prototypes ========================== */
 
@@ -2357,6 +2358,152 @@ void makeThreadKillable(void) {
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 }
 
+// Dat mod
+
+
+void reset_mini_cache_stats(miniCache* mini_cache) {
+    mini_cache->stats_hits = 0;
+    mini_cache->stats_misses = 0;
+}
+
+void* init_a_mini_cache() {
+    printf("Initializing a mini Cache\n");
+    miniCache *mini_cache = zmalloc(sizeof(miniCache));
+
+    for(int i = 0; i < HT_ROWS; i++) {
+        hashTableRow* ht_row = zmalloc(sizeof(hashTableRow));
+        ht_row->head = NULL;
+        ht_row->tail = NULL;
+        mini_cache->Cache[i] = ht_row;
+    }
+    // for(int i = 0; i < EVPOOL_SIZE; i++) {
+    //     mini_cache1->EvictionPool[i].idle = 0;
+    //     mini_cache1->EvictionPool[i].key = NULL;
+    //     mini_cache1->EvictionPool[i].cached = sdsnewlen(NULL,EVPOOL_CACHED_SDS_SIZE);
+    //     mini_cache1->EvictionPool[i].dbid = 0;
+    // }
+    reset_mini_cache_stats(mini_cache);
+    mini_cache->current_size=0;
+    mini_cache->max_size=0;
+
+    return mini_cache;
+}
+
+DLRU* InitDLRU() {
+    printf("Initializing DLRU\n");
+    DLRU* dlru = zmalloc(sizeof(DLRU));
+    dlru->cache1 = init_a_mini_cache();
+    dlru->cache2 = init_a_mini_cache();
+    dlru->cache5 = init_a_mini_cache();
+    dlru->cache10 = init_a_mini_cache();
+    dlru->cache16 = init_a_mini_cache();
+    return dlru;
+}
+
+hashNode* new_hashNode(sds key) {
+    hashNode* rt = zmalloc(sizeof(hashNode));
+    rt->key = key;
+    rt->next = NULL;
+    return rt;
+}
+
+int hash_a_key(sds key) {
+    const unsigned char *buf = (unsigned char*)key;
+    int len = strlen(key);
+    unsigned int hash = 5381;
+
+    while (len--)
+        hash = ((hash << 5) + hash) + (*buf++); /* hash * 33 + c */
+    return hash;
+}
+
+bool pass_DLRU_filter(int hash) {
+    return hash % DLRU_MODULUS < DLRU_THRESHOLD;
+}
+
+void push_to_mini_cache(hashNode* new_node, miniCache* mini_cache, int hash) {
+    int row_idx = hash % HT_ROWS;
+    if (mini_cache->Cache[row_idx]->head == NULL) {
+        mini_cache->Cache[row_idx]->head = new_node;
+        mini_cache->Cache[row_idx]->tail = new_node;
+    } else {
+        mini_cache->Cache[row_idx]->tail->next = new_node;
+        mini_cache->Cache[row_idx]->tail = new_node;
+    }
+}
+
+int pop_from_mini_cache(sds key, miniCache* mini_cache, int hash) {
+    // return 1 for success pop, 0 otherwise
+    hashNode* prev = NULL;
+    hashNode* temp = NULL;
+    int row_idx = hash % HT_ROWS;
+    hashTableRow* ht_row = mini_cache->Cache[row_idx];
+    if (ht_row->head == NULL) {
+        return 0;
+    } 
+
+    // ht_row->head != NULL
+    if (ht_row->head->key == key) {
+        temp = ht_row->head;
+        ht_row->head = ht_row->head->next;
+        zfree(temp);
+        return 1;
+    }
+    // now first node is not NULL and is not the one, run the while loop
+    prev = ht_row->head;
+    temp = ht_row->head->next;
+
+    while (temp != NULL) {
+        if (temp->key == key) {
+            prev->next = temp->next;
+            zfree(temp);
+            return 1;
+        } else {
+            prev = temp;
+            temp = temp->next;
+        }
+
+    }
+    return 0;
+}
+
+void push_to_DLRU(sds key) {
+    int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
+    // filter for minicache
+    if (!pass_DLRU_filter(hash)) return; 
+    struct hashNode* new_node = new_hashNode(key);
+    // int row_id = hash % SIZE;
+    // if (dlru->cache1->Cache[row_id]->head == NULL) {
+    //     dlru->cache1->Cache[row_id]->head = new_node;
+    //     dlru->cache1->Cache[row_id]->tail = new_node;
+    // } else {
+    //     dlru->cache1->Cache[row_id]->tail->next = new_node;
+    //     dlru->cache1->Cache[row_id]->tail = new_node;
+    // }
+    push_to_mini_cache(new_node, dlru.cache1, hash);
+    push_to_mini_cache(new_node, dlru.cache2, hash);
+    push_to_mini_cache(new_node, dlru.cache5, hash);
+    push_to_mini_cache(new_node, dlru.cache10, hash);
+    push_to_mini_cache(new_node, dlru.cache16, hash);
+}
+
+void pop_from_DLRU(sds key) {
+    int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
+    // mini cache so we only take in portion of references
+    if (!pass_DLRU_filter(hash)) return;
+
+
+    // TODO: there coule be a miss pop, find out what to do with it
+    pop_from_mini_cache(key, dlru.cache1, hash);
+    pop_from_mini_cache(key, dlru.cache2, hash);
+    pop_from_mini_cache(key, dlru.cache5, hash);
+    pop_from_mini_cache(key, dlru.cache10, hash);
+    pop_from_mini_cache(key, dlru.cache16, hash);
+}
+
+
+// Dat mod ends
+
 void initServer(void) {
     int j;
 
@@ -2409,6 +2556,10 @@ void initServer(void) {
     server.reply_buffer_peak_reset_time = REPLY_BUFFER_DEFAULT_PEAK_RESET_TIME;
     server.reply_buffer_resizing_enabled = 1;
     resetReplicationBuffer();
+
+    // Dat mod
+    server.dlru = InitDLRU();
+    // Dat mod ends
 
     if ((server.tls_port || server.tls_replication || server.tls_cluster)
                 && tlsConfigure(&server.tls_ctx_config) == C_ERR) {

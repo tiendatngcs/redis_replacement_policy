@@ -1422,6 +1422,42 @@ typedef struct {
 #define CHILD_TYPE_LDB 3
 #define CHILD_TYPE_MODULE 4
 
+// Dat mod
+// structures for DLRU
+
+#define HT_ROWS 20
+#define DLRU_MODULUS 200
+#define DLRU_THRESHOLD 1
+
+typedef struct hashNode {
+    sds key;
+    struct hashNode *next;
+} hashNode;
+
+typedef struct hashTableRow {
+    hashNode *head;
+    hashNode *tail;
+} hashTableRow;
+
+typedef struct miniCache {
+    hashTableRow* Cache[HT_ROWS];               // array of hash table row
+    // struct evictionPoolEntry EvictionPool[EVPOOL_SIZE];     // 
+    int stats_hits; 
+    int stats_misses;
+    int current_size;
+    int max_size;
+} miniCache;
+
+typedef struct DLRU {
+    miniCache *cache1;
+    miniCache *cache2;
+    miniCache *cache5;
+    miniCache *cache10;
+    miniCache *cache16;
+} DLRU;
+
+// Dat mod ends
+
 typedef enum childInfoType {
     CHILD_INFO_TYPE_CURRENT_INFO,
     CHILD_INFO_TYPE_AOF_COW_SIZE,
@@ -1910,7 +1946,10 @@ struct redisServer {
                                                 is down, doesn't affect pubsub global. */
     long reply_buffer_peak_reset_time; /* The amount of time (in milliseconds) to wait between reply buffer peak resets */
     int reply_buffer_resizing_enabled; /* Is reply buffer resizing enabled (1 by default) */
+
+    DLRU *dlru; /* structure support DLRU */
 };
+
 
 #define MAX_KEYS_BUFFER 256
 

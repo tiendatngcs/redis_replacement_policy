@@ -38,6 +38,13 @@
 #include <ctype.h>
 
 /*-----------------------------------------------------------------------------
+ * DLRU API
+ *----------------------------------------------------------------------------*/
+
+
+
+
+/*-----------------------------------------------------------------------------
  * C-level DB API
  *----------------------------------------------------------------------------*/
 
@@ -255,7 +262,9 @@ void setKey(client *c, redisDb *db, robj *key, robj *val, int flags) {
     else if (!(flags & SETKEY_DOESNT_EXIST))
         keyfound = (lookupKeyWrite(db,key) != NULL);
 
+    // TODO add key val here to minicache
     if (!keyfound) {
+        // push_to_DLRU();
         dbAdd(db,key,val);
     } else {
         dbOverwrite(db,key,val);

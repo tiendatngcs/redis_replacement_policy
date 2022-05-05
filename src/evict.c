@@ -68,188 +68,171 @@ static struct evictionPoolEntry *EvictionPoolLRU;
 
 // Dat mod 
 
-static struct evictionPoolEntry *EvictionPoolLRU;
+// static struct evictionPoolEntry *EvictionPoolLRU;
 
 
-struct hash_node {
-    sds key;
-    struct hash_node *next;
-};
+// struct hash_node {
+//     sds key;
+//     struct hash_node *next;
+// };
 
-struct hashTableRow {
-    struct hash_node *head;
-    struct hash_node *tail;
-};
+// struct hashTableRow {
+//     struct hash_node *head;
+//     struct hash_node *tail;
+// };
 
-struct hashTableRow *HASH_TABLE1;  // hash table is array of hashTableRow
+// struct miniCache {
+//     struct hashTableRow *Cache[SIZE];               // array of hash table row
+//     // struct evictionPoolEntry EvictionPool[EVPOOL_SIZE];     // 
+//     int stats_hits; 
+//     int stats_misses;
+//     int stats_size;
+//     int stats_max_size;
+// };
 
-// struct hashTableRow* init_hash_table(int array_size) {
-//     struct hashTableRow* hash_table = malloc(sizeof(struct hashTableRow) * SIZE);
-//     int i;
-//     for (i = 0; i < SIZE; i++) {
-//         struct hash_node *node = malloc(sizeof(struct hash_node));
-//         node->next = NULL;
-//         hash_table[i]->head = node;
-//         hash_table[i]->tail = node;
+// struct DLRU {
+//     struct miniCache *cache1;
+//     struct miniCache *cache2;
+//     struct miniCache *cache5;
+//     struct miniCache *cache10;
+//     struct miniCache *cache16;
+// };
+
+// static struct DLRU *dlru;
+
+// struct miniCache* init_a_mini_cache(){
+//     struct miniCache *mini_cache1;
+//     mini_cache1 = zmalloc(sizeof(struct miniCache));
+
+//     for(int i = 0; i < SIZE; i++) {
+//         // struct hash_node *node = zmalloc(sizeof(struct hash_node));
+//         // node->next = NULL;
+//         // mini_cache1->Cache[i]->head = node;
+//         // mini_cache1->Cache[i]->tail = node;
+
+//         mini_cache1->Cache[i]->head = NULL;
+//         mini_cache1->Cache[i]->tail = NULL;
 //     }
-//     return hash_table;
+//     // for(int i = 0; i < EVPOOL_SIZE; i++) {
+//     //     mini_cache1->EvictionPool[i].idle = 0;
+//     //     mini_cache1->EvictionPool[i].key = NULL;
+//     //     mini_cache1->EvictionPool[i].cached = sdsnewlen(NULL,EVPOOL_CACHED_SDS_SIZE);
+//     //     mini_cache1->EvictionPool[i].dbid = 0;
+//     // }
+//     mini_cache1->hits = 0;
+//     mini_cache1->misses = 0;
+//     mini_cache1->size = 0;
+//     return mini_cache1;
 // }
 
-// void push_to_hash_table(sds key) {
-
-// }
-
-struct miniCache {
-    struct hashTableRow *Cache[SIZE];               // array of hash table row
-    struct evictionPoolEntry EvictionPool[EVPOOL_SIZE];     // 
-    int hits; 
-    int misses;
-    int size;
-};
-
-struct DLRU {
-    struct miniCache *cache1;
-    struct miniCache *cache2;
-    struct miniCache *cache5;
-    struct miniCache *cache10;
-    struct miniCache *cache16;
-};
-
-static struct DLRU *dlru;
-
-struct miniCache* init_a_mini_cache(){
-    struct miniCache *mini_cache1;
-    mini_cache1 = zmalloc(sizeof(struct miniCache));
-
-    for(int i = 0; i < SIZE; i++) {
-        // struct hash_node *node = zmalloc(sizeof(struct hash_node));
-        // node->next = NULL;
-        // mini_cache1->Cache[i]->head = node;
-        // mini_cache1->Cache[i]->tail = node;
-
-        mini_cache1->Cache[i]->head = NULL;
-        mini_cache1->Cache[i]->tail = NULL;
-    }
-    for(int i = 0; i < EVPOOL_SIZE; i++) {
-        mini_cache1->EvictionPool[i].idle = 0;
-        mini_cache1->EvictionPool[i].key = NULL;
-        mini_cache1->EvictionPool[i].cached = sdsnewlen(NULL,EVPOOL_CACHED_SDS_SIZE);
-        mini_cache1->EvictionPool[i].dbid = 0;
-    }
-    mini_cache1->hits = 0;
-    mini_cache1->misses = 0;
-    mini_cache1->size = 0;
-    return mini_cache1;
-}
-
-void DLRUAlloc(void) {
-    struct DLRU *temp = zmalloc(sizeof(struct DLRU));
+// void DLRUAlloc(void) {
+//     struct DLRU *temp = zmalloc(sizeof(struct DLRU));
 
     
 
 
-    temp->cache1 = init_a_mini_cache();
-    temp->cache2 = init_a_mini_cache();
-    temp->cache5 = init_a_mini_cache();
-    temp->cache10 = init_a_mini_cache();
-    temp->cache16 = init_a_mini_cache();
-    dlru = temp;
-}
+//     temp->cache1 = init_a_mini_cache();
+//     temp->cache2 = init_a_mini_cache();
+//     temp->cache5 = init_a_mini_cache();
+//     temp->cache10 = init_a_mini_cache();
+//     temp->cache16 = init_a_mini_cache();
+//     dlru = temp;
+// }
 
-struct hash_node* init_hash_node(sds key) {
-    struct hash_node* temp = zmalloc(sizeof(struct hash_node));
-    temp->key = key;
-    temp->next = NULL;
-    return temp;
-}
+// struct hash_node* init_hash_node(sds key) {
+//     struct hash_node* temp = zmalloc(sizeof(struct hash_node));
+//     temp->key = key;
+//     temp->next = NULL;
+//     return temp;
+// }
 
-int dictGenHashFunction(const unsigned char *buf, int len) {
-    unsigned int hash = 5381;
+// int dictGenHashFunction(const unsigned char *buf, int len) {
+//     unsigned int hash = 5381;
 
-    while (len--)
-        hash = ((hash << 5) + hash) + (*buf++); /* hash * 33 + c */
-    return hash;
-}
+//     while (len--)
+//         hash = ((hash << 5) + hash) + (*buf++); /* hash * 33 + c */
+//     return hash;
+// }
 
-void push_to_mini_cache(struct hash_node* new_node, struct miniCache* mini_cache, int hash) {
-    int row_idx = hash % SIZE;
-    if (mini_cache->Cache[row_idx]->head == NULL) {
-        mini_cache->Cache[row_idx]->head = new_node;
-        mini_cache->Cache[row_idx]->tail = new_node;
-    } else {
-        mini_cache->Cache[row_idx]->tail->next = new_node;
-        mini_cache->Cache[row_idx]->tail = new_node;
-    }
-}
+// void push_to_mini_cache(struct hash_node* new_node, struct miniCache* mini_cache, int hash) {
+//     int row_idx = hash % SIZE;
+//     if (mini_cache->Cache[row_idx]->head == NULL) {
+//         mini_cache->Cache[row_idx]->head = new_node;
+//         mini_cache->Cache[row_idx]->tail = new_node;
+//     } else {
+//         mini_cache->Cache[row_idx]->tail->next = new_node;
+//         mini_cache->Cache[row_idx]->tail = new_node;
+//     }
+// }
 
-int pop_from_mini_cache(sds key, struct miniCache* mini_cache, int hash) {
-    // return 1 for success pop, 0 otherwise
-    struct hash_node* prev = NULL;
-    struct hash_node* temp = NULL;
-    int row_idx = hash % SIZE;
-    struct hashTableRow* ht_row = mini_cache->Cache[row_idx];
-    if (ht_row->head == NULL) {
-        return 0;
-    } 
+// int pop_from_mini_cache(sds key, struct miniCache* mini_cache, int hash) {
+//     // return 1 for success pop, 0 otherwise
+//     struct hash_node* prev = NULL;
+//     struct hash_node* temp = NULL;
+//     int row_idx = hash % SIZE;
+//     struct hashTableRow* ht_row = mini_cache->Cache[row_idx];
+//     if (ht_row->head == NULL) {
+//         return 0;
+//     } 
 
-    // ht_row->head != NULL
-    if (ht_row->head->key == key) {
-        temp = ht_row->head;
-        ht_row->head = ht_row->head->next;
-        zfree(temp);
-        return 1;
-    }
-    // now first node is not NULL and is not the one, run the while loop
-    prev = ht_row->head;
-    temp = ht_row->head->next;
+//     // ht_row->head != NULL
+//     if (ht_row->head->key == key) {
+//         temp = ht_row->head;
+//         ht_row->head = ht_row->head->next;
+//         zfree(temp);
+//         return 1;
+//     }
+//     // now first node is not NULL and is not the one, run the while loop
+//     prev = ht_row->head;
+//     temp = ht_row->head->next;
 
-    while (temp != NULL) {
-        if (temp->key == key) {
-            prev->next = temp->next;
-            zfree(temp);
-            return 1;
-        } else {
-            prev = temp;
-            temp = temp->next;
-        }
+//     while (temp != NULL) {
+//         if (temp->key == key) {
+//             prev->next = temp->next;
+//             zfree(temp);
+//             return 1;
+//         } else {
+//             prev = temp;
+//             temp = temp->next;
+//         }
 
-    }
-    return 0;
-}
+//     }
+//     return 0;
+// }
 
-void push_to_DLRU(sds key) {
-    int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
-    // filter for minicache
-    if (hash % MODULUS >= THRESHOLD) return; 
-    struct hash_node* new_node = init_hash_node(key);
-    // int row_id = hash % SIZE;
-    // if (dlru->cache1->Cache[row_id]->head == NULL) {
-    //     dlru->cache1->Cache[row_id]->head = new_node;
-    //     dlru->cache1->Cache[row_id]->tail = new_node;
-    // } else {
-    //     dlru->cache1->Cache[row_id]->tail->next = new_node;
-    //     dlru->cache1->Cache[row_id]->tail = new_node;
-    // }
-    push_to_mini_cache(new_node, dlru->cache1, hash);
-    push_to_mini_cache(new_node, dlru->cache2, hash);
-    push_to_mini_cache(new_node, dlru->cache5, hash);
-    push_to_mini_cache(new_node, dlru->cache10, hash);
-    push_to_mini_cache(new_node, dlru->cache16, hash);
-}
+// void push_to_DLRU(sds key) {
+//     int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
+//     // filter for minicache
+//     if (hash % MODULUS >= THRESHOLD) return; 
+//     struct hash_node* new_node = init_hash_node(key);
+//     // int row_id = hash % SIZE;
+//     // if (dlru->cache1->Cache[row_id]->head == NULL) {
+//     //     dlru->cache1->Cache[row_id]->head = new_node;
+//     //     dlru->cache1->Cache[row_id]->tail = new_node;
+//     // } else {
+//     //     dlru->cache1->Cache[row_id]->tail->next = new_node;
+//     //     dlru->cache1->Cache[row_id]->tail = new_node;
+//     // }
+//     push_to_mini_cache(new_node, dlru->cache1, hash);
+//     push_to_mini_cache(new_node, dlru->cache2, hash);
+//     push_to_mini_cache(new_node, dlru->cache5, hash);
+//     push_to_mini_cache(new_node, dlru->cache10, hash);
+//     push_to_mini_cache(new_node, dlru->cache16, hash);
+// }
 
-void pop_from_DLRU(sds key) {
-    int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
-    // mini cache so we only take in portion of references
-    if (hash % MODULUS >= THRESHOLD) return;
+// void pop_from_DLRU(sds key) {
+//     int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
+//     // mini cache so we only take in portion of references
+//     if (hash % MODULUS >= THRESHOLD) return;
 
 
-    // TODO: there coule be a miss pop, find out what to do with it
-    pop_from_mini_cache(key, dlru->cache1, hash);
-    pop_from_mini_cache(key, dlru->cache2, hash);
-    pop_from_mini_cache(key, dlru->cache5, hash);
-    pop_from_mini_cache(key, dlru->cache10, hash);
-    pop_from_mini_cache(key, dlru->cache16, hash);
-}
+//     // TODO: there coule be a miss pop, find out what to do with it
+//     pop_from_mini_cache(key, dlru->cache1, hash);
+//     pop_from_mini_cache(key, dlru->cache2, hash);
+//     pop_from_mini_cache(key, dlru->cache5, hash);
+//     pop_from_mini_cache(key, dlru->cache10, hash);
+//     pop_from_mini_cache(key, dlru->cache16, hash);
+// }
 
 // Dat mod ends
 
