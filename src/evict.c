@@ -1146,7 +1146,7 @@ int pop_from_mini_cache(sds key, miniCache* mini_cache, int hash) {
     } 
 
     // ht_row->head != NULL
-    if (ht_row->head->key == key) {
+    if (sdscmp(ht_row->head->key, key) == 0) {
         temp = ht_row->head;
         ht_row->head = ht_row->head->next;
         zfree(temp);
@@ -1158,7 +1158,7 @@ int pop_from_mini_cache(sds key, miniCache* mini_cache, int hash) {
     temp = ht_row->head->next;
 
     while (temp != NULL) {
-        if (temp->key == key) {
+        if (sdscmp(temp->key, key) == 0) {
             prev->next = temp->next;
             zfree(temp);
             ht_row->count -= 1;
@@ -1228,8 +1228,9 @@ void evict_from_mini_cache (miniCache* mini_cache) {
 
         // Great, now we pop the key-value node from the minicache
         if (bestkey) {
-            int hash = dictGenHashFunction((unsigned char*)bestkey, strlen(bestkey));
-            pop_from_mini_cache(bestkey, mini_cache, hash);
+            int hash = dictGenHashFunction((void*)bestkey, strlen(bestkey));
+            int result = pop_from_mini_cache(bestkey, mini_cache, hash);
+            if (result == 1) mini_cache->current_size -= 200;
         }
 
     }
@@ -1238,6 +1239,9 @@ void evict_from_mini_cache (miniCache* mini_cache) {
 }
 
 void performDLRUEvictions () {
-
-    
+    evict_from_mini_cache(server.dlru->cache1);
+    evict_from_mini_cache(server.dlru->cache2);
+    evict_from_mini_cache(server.dlru->cache5);
+    evict_from_mini_cache(server.dlru->cache10);
+    evict_from_mini_cache(server.dlru->cache16);
 }

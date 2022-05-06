@@ -3263,6 +3263,7 @@ unsigned long LFUDecrAndReturn(robj *o);
 #define EVICT_RUNNING 1
 #define EVICT_FAIL 2
 int performEvictions(void);
+void performDLRUEvictions();
 void startEvictionTimeProc(void);
 
 /* Keys hashing / comparison functions for dict.c hash tables. */

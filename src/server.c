@@ -2386,7 +2386,7 @@ miniCache* init_a_mini_cache(int evic_sample_size) {
     // }
     reset_mini_cache_stats(mini_cache);
     mini_cache->current_size=0;
-    mini_cache->max_size=0;
+    mini_cache->max_size=20000; // 20000 hard-coded bytes for now
     mini_cache->evict_sample_size = evic_sample_size;
     mini_cache->eviction_pool = NULL; // remember to init evictiob pull in evic.c
     return mini_cache;
@@ -2447,6 +2447,7 @@ void push_to_mini_cache(hashNode* new_node, miniCache* mini_cache, int hash) {
         ht_row->tail = new_node;
     }
     ht_row->count += 1;
+    mini_cache->current_size += 200;
 }
 
 int search_in_mini_cache(sds key, miniCache* mini_cache, int hash) {
@@ -2496,7 +2497,7 @@ void push_to_DLRU(sds key, robj* val) {
     printf("hash %d\n", hash);
     // filter for minicache
     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!! Turn this on at Production !!!!!!!!!!!!!!!!!!!!!!!!
-    // if (!pass_DLRU_filter(hash)) return;
+    if (!pass_DLRU_filter(hash)) return;
     printf("Key pass DLRU filter\n");
     struct hashNode* new_node = new_hashNode(key, val);
     // int row_id = hash % SIZE;
@@ -2520,7 +2521,7 @@ void search_in_DLRU(sds key) {
     // try to get from each minicache, update their hit miss counts
     int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
     // mini cache so we only take in portion of references
-    // if (!pass_DLRU_filter(hash)) return;
+    if (!pass_DLRU_filter(hash)) return;
 
 
     // look up in mini caches, adjust stats accordingly
@@ -3858,6 +3859,7 @@ int processCommand(client *c) {
      * the event loop since there is a busy Lua script running in timeout
      * condition, to avoid mixing the propagation of scripts with the
      * propagation of DELs due to eviction. */
+
     if (server.maxmemory && !scriptIsTimedout()) {
         int out_of_memory = (performEvictions() == EVICT_FAIL);
 
@@ -4022,6 +4024,10 @@ int processCommand(client *c) {
     }
 
     /* Exec the command */
+
+    // Dat mod
+    performDLRUEvictions();
+    // Dat mod ends
     if (c->flags & CLIENT_MULTI &&
         c->cmd->proc != execCommand &&
         c->cmd->proc != discardCommand &&
