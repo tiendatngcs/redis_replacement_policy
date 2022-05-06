@@ -442,9 +442,11 @@ int get_multiple_mini_cache_key(miniCache* mini_cache, hashNode** node_arr, int 
 
 void dlruEvictionPoolPopulate(miniCache* mini_cache) {
     int k, count;
-    struct evictionPoolEntry *pool = (struct evictionPoolEntry *)mini_cache->eviction_pool;
+    evictionPoolEntry *pool = (evictionPoolEntry *)(mini_cache->eviction_pool);
+    printf("Got the pool instatnce %p\n", (void*)pool); 
     hashNode* node_arr [mini_cache->evict_sample_size];
     count = get_multiple_mini_cache_key(mini_cache, node_arr, mini_cache->evict_sample_size);
+    printf("Num of keys %d\n", count);
     for (int i = 0; i < count; i++) {
         unsigned long long idle;
         sds key;

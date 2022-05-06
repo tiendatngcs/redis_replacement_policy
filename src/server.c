@@ -2433,12 +2433,12 @@ bool pass_DLRU_filter(int hash) {
 // }
 
 void push_to_mini_cache(hashNode* new_node, miniCache* mini_cache, int hash) {
-    printf("Pushing to mini cache\n");
+    // printf("Pushing to mini cache\n");
     int row_idx = abs(hash % HT_ROWS);
-    printf("key %p\n", (void*)(new_node->key));
-    printf("Row idx %d\n", row_idx);
+    // printf("key %p\n", (void*)(new_node->key));
+    // printf("Row idx %d\n", row_idx);
     hashTableRow* ht_row = mini_cache->Cache[row_idx];
-    printf("Got ht_row %p \n", (void*)ht_row);
+    // printf("Got ht_row %p \n", (void*)ht_row);
     if (ht_row->head == NULL) {
         ht_row->head = new_node;
         ht_row->tail = new_node;
@@ -2455,9 +2455,9 @@ int search_in_mini_cache(sds key, miniCache* mini_cache, int hash) {
     // hashNode* prev = NULL;
     hashNode* temp = NULL;
     int row_idx = abs(hash % HT_ROWS);
-    printf("key %p\n", (void*)key);
-    printf("hash %d\n", hash);
-    printf("row_idx %d\n", row_idx);
+    // printf("key %p\n", (void*)key);
+    // printf("hash %d\n", hash);
+    // printf("row_idx %d\n", row_idx);
     hashTableRow* ht_row = mini_cache->Cache[row_idx];
     if (ht_row->head == NULL) {
         // printf("a miss\n");
@@ -2492,13 +2492,13 @@ int search_in_mini_cache(sds key, miniCache* mini_cache, int hash) {
 }
 
 void push_to_DLRU(sds key, robj* val) {
-    printf("pushing to DLRU\n");
+    // printf("pushing to DLRU\n");
     int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
-    printf("hash %d\n", hash);
+    // printf("hash %d\n", hash);
     // filter for minicache
     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!! Turn this on at Production !!!!!!!!!!!!!!!!!!!!!!!!
     if (!pass_DLRU_filter(hash)) return;
-    printf("Key pass DLRU filter\n");
+    // printf("Key pass DLRU filter\n");
     struct hashNode* new_node = new_hashNode(key, val);
     // int row_id = hash % SIZE;
     // if (dlru->cache1->Cache[row_id]->head == NULL) {
@@ -3403,7 +3403,7 @@ int incrCommandStatsOnError(struct redisCommand *cmd, int flags) {
  *
  */
 void call(client *c, int flags) {
-    printf("calling command\n");
+    // printf("calling command\n");
     long long dirty;
     monotime call_timer;
     uint64_t client_old_flags = c->flags;
@@ -3438,7 +3438,7 @@ void call(client *c, int flags) {
     server.in_nested_call++;
 
     elapsedStart(&call_timer);
-    printf("calling %s\n", c->cmd->declared_name);
+    // printf("calling %s\n", c->cmd->declared_name);
     c->cmd->proc(c);
     const long duration = elapsedUs(call_timer);
     c->duration = duration;
@@ -3685,7 +3685,7 @@ void populateCommandMovableKeys(struct redisCommand *cmd) {
  * other operations can be performed by the caller. Otherwise
  * if C_ERR is returned the client was destroyed (i.e. after QUIT). */
 int processCommand(client *c) {
-    printf("process_command\n");
+    // printf("process_command\n");
     if (!scriptIsTimedout()) {
         /* Both EXEC and EVAL call call() directly so there should be
          * no way in_exec or in_eval is 1.
