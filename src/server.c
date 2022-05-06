@@ -2366,7 +2366,7 @@ void reset_mini_cache_stats(miniCache* mini_cache) {
     mini_cache->stats_misses = 0;
 }
 
-void* init_a_mini_cache() {
+miniCache* init_a_mini_cache(int evic_sample_size) {
     printf("Initializing a mini Cache\n");
     miniCache *mini_cache = zmalloc(sizeof(miniCache));
 
@@ -2374,6 +2374,7 @@ void* init_a_mini_cache() {
         hashTableRow* ht_row = zmalloc(sizeof(hashTableRow));
         ht_row->head = NULL;
         ht_row->tail = NULL;
+        ht_row->count = 0;
         mini_cache->Cache[i] = ht_row;
     }
     // for(int i = 0; i < EVPOOL_SIZE; i++) {
@@ -2385,24 +2386,26 @@ void* init_a_mini_cache() {
     reset_mini_cache_stats(mini_cache);
     mini_cache->current_size=0;
     mini_cache->max_size=0;
-
+    mini_cache->evict_sample_size = evic_sample_size;
+    mini_cache->eviction_pool = NULL; // remember to init evictiob pull in evic.c
     return mini_cache;
 }
 
 DLRU* InitDLRU() {
     printf("Initializing DLRU\n");
     DLRU* dlru = zmalloc(sizeof(DLRU));
-    dlru->cache1 = init_a_mini_cache();
-    dlru->cache2 = init_a_mini_cache();
-    dlru->cache5 = init_a_mini_cache();
-    dlru->cache10 = init_a_mini_cache();
-    dlru->cache16 = init_a_mini_cache();
+    dlru->cache1 = init_a_mini_cache(1);
+    dlru->cache2 = init_a_mini_cache(2);
+    dlru->cache5 = init_a_mini_cache(5);
+    dlru->cache10 = init_a_mini_cache(10);
+    dlru->cache16 = init_a_mini_cache(16);
     return dlru;
 }
 
-hashNode* new_hashNode(sds key) {
+hashNode* new_hashNode(sds key, robj* val) {
     hashNode* rt = zmalloc(sizeof(hashNode));
     rt->key = key;
+    rt->val = val;
     rt->next = NULL;
     return rt;
 }
@@ -2421,57 +2424,31 @@ bool pass_DLRU_filter(int hash) {
     return hash % DLRU_MODULUS < DLRU_THRESHOLD;
 }
 
-void push_to_mini_cache(hashNode* new_node, miniCache* mini_cache, int hash) {
-    int row_idx = hash % HT_ROWS;
-    if (mini_cache->Cache[row_idx]->head == NULL) {
-        mini_cache->Cache[row_idx]->head = new_node;
-        mini_cache->Cache[row_idx]->tail = new_node;
-    } else {
-        mini_cache->Cache[row_idx]->tail->next = new_node;
-        mini_cache->Cache[row_idx]->tail = new_node;
-    }
-}
+// void eviction_loop(miniCache* mini_cache, robj* val) {
+//     // caller must check if max_mem is reached
+//     while (mini_cache->current_size >= mini_cache->max_size) {
+//         pop_from_mini_cache(mini_cache);
+//     }
+// }
 
-int pop_from_mini_cache(sds key, miniCache* mini_cache, int hash) {
-    // return 1 for success pop, 0 otherwise
-    hashNode* prev = NULL;
-    hashNode* temp = NULL;
+void push_to_mini_cache(hashNode* new_node, miniCache* mini_cache, int hash) {
     int row_idx = hash % HT_ROWS;
     hashTableRow* ht_row = mini_cache->Cache[row_idx];
     if (ht_row->head == NULL) {
-        return 0;
-    } 
-
-    // ht_row->head != NULL
-    if (ht_row->head->key == key) {
-        temp = ht_row->head;
-        ht_row->head = ht_row->head->next;
-        zfree(temp);
-        return 1;
+        ht_row->head = new_node;
+        ht_row->tail = new_node;
+    } else {
+        ht_row->tail->next = new_node;
+        ht_row->tail = new_node;
     }
-    // now first node is not NULL and is not the one, run the while loop
-    prev = ht_row->head;
-    temp = ht_row->head->next;
-
-    while (temp != NULL) {
-        if (temp->key == key) {
-            prev->next = temp->next;
-            zfree(temp);
-            return 1;
-        } else {
-            prev = temp;
-            temp = temp->next;
-        }
-
-    }
-    return 0;
+    ht_row->count += 1;
 }
 
-void push_to_DLRU(sds key) {
+void push_to_DLRU(sds key, robj* val) {
     int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
     // filter for minicache
     if (!pass_DLRU_filter(hash)) return; 
-    struct hashNode* new_node = new_hashNode(key);
+    struct hashNode* new_node = new_hashNode(key, val);
     // int row_id = hash % SIZE;
     // if (dlru->cache1->Cache[row_id]->head == NULL) {
     //     dlru->cache1->Cache[row_id]->head = new_node;
@@ -2487,19 +2464,19 @@ void push_to_DLRU(sds key) {
     push_to_mini_cache(new_node, dlru.cache16, hash);
 }
 
-void pop_from_DLRU(sds key) {
-    int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
-    // mini cache so we only take in portion of references
-    if (!pass_DLRU_filter(hash)) return;
+// void pop_from_DLRU(sds key) {
+//     int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
+//     // mini cache so we only take in portion of references
+//     if (!pass_DLRU_filter(hash)) return;
 
 
-    // TODO: there coule be a miss pop, find out what to do with it
-    pop_from_mini_cache(key, dlru.cache1, hash);
-    pop_from_mini_cache(key, dlru.cache2, hash);
-    pop_from_mini_cache(key, dlru.cache5, hash);
-    pop_from_mini_cache(key, dlru.cache10, hash);
-    pop_from_mini_cache(key, dlru.cache16, hash);
-}
+//     // TODO: there coule be a miss pop, find out what to do with it
+//     pop_from_mini_cache(key, dlru.cache1, hash);
+//     pop_from_mini_cache(key, dlru.cache2, hash);
+//     pop_from_mini_cache(key, dlru.cache5, hash);
+//     pop_from_mini_cache(key, dlru.cache10, hash);
+//     pop_from_mini_cache(key, dlru.cache16, hash);
+// }
 
 
 // Dat mod ends
@@ -3810,6 +3787,10 @@ int processCommand(client *c) {
      * propagation of DELs due to eviction. */
     if (server.maxmemory && !scriptIsTimedout()) {
         int out_of_memory = (performEvictions() == EVICT_FAIL);
+
+        // Dat mod
+        // performDLRUEvictions();
+        //
 
         /* performEvictions may evict keys, so we need flush pending tracking
          * invalidation keys. If we don't do this, we may get an invalidation

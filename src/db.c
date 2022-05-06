@@ -241,6 +241,15 @@ void dbOverwrite(redisDb *db, robj *key, robj *val) {
     dictFreeVal(db->dict, &auxentry);
 }
 
+void DLRUAdd() {
+    // Check if we need to 
+}
+
+void DLRUOverwrite() {
+
+}
+
+
 /* High level Set operation. This function can be used in order to set
  * a key, whatever it was existing or not, to a new object.
  *
@@ -264,9 +273,10 @@ void setKey(client *c, redisDb *db, robj *key, robj *val, int flags) {
 
     // TODO add key val here to minicache
     if (!keyfound) {
-        // push_to_DLRU();
+        DLRUAdd(key);
         dbAdd(db,key,val);
     } else {
+        DLRUOverwrite(key);
         dbOverwrite(db,key,val);
     }
     incrRefCount(val);

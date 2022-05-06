@@ -57,14 +57,19 @@
 #define THRESHOLD 1
 #define MODULUS 200
 #define SIZE 20
-struct evictionPoolEntry {
+typedef struct evictionPoolEntry {
     unsigned long long idle;    /* Object idle time (inverse frequency for LFU) */
     sds key;                    /* Key name. */
     sds cached;                 /* Cached SDS object for key name. */
     int dbid;                   /* Key DB number. */
-};
+} evictionPoolEntry;
 
-static struct evictionPoolEntry *EvictionPoolLRU;
+static evictionPoolEntry *EvictionPoolLRU;
+// static evictionPoolEntry *EvictionPoolLRU1;
+// static evictionPoolEntry *EvictionPoolLRU2;
+// static evictionPoolEntry *EvictionPoolLRU5;
+// static evictionPoolEntry *EvictionPoolLRU10;
+// static evictionPoolEntry *EvictionPoolLRU16;
 
 // Dat mod 
 
@@ -296,6 +301,58 @@ unsigned long long estimateObjectIdleTime(robj *o) {
  * evicted in the whole database. */
 
 /* Create a new eviction pool. */
+
+void miniCacheEvictionPoolAlloc() {
+    struct evictionPoolEntry *ep;
+    int j;
+
+    ep = zmalloc(sizeof(*ep)*EVPOOL_SIZE);
+    for (j = 0; j < EVPOOL_SIZE; j++) {
+        ep[j].idle = 0;
+        ep[j].key = NULL;
+        ep[j].cached = sdsnewlen(NULL,EVPOOL_CACHED_SDS_SIZE);
+        ep[j].dbid = 0;
+    }
+    // EvictionPoolLRU1 = ep;
+    server.dlru->cache1->eviction_pool = ep;
+
+    ep = zmalloc(sizeof(*ep)*EVPOOL_SIZE);
+    for (j = 0; j < EVPOOL_SIZE; j++) {
+        ep[j].idle = 0;
+        ep[j].key = NULL;
+        ep[j].cached = sdsnewlen(NULL,EVPOOL_CACHED_SDS_SIZE);
+        ep[j].dbid = 0;
+    }
+    server.dlru->cache2->eviction_pool = ep;
+
+    ep = zmalloc(sizeof(*ep)*EVPOOL_SIZE);
+    for (j = 0; j < EVPOOL_SIZE; j++) {
+        ep[j].idle = 0;
+        ep[j].key = NULL;
+        ep[j].cached = sdsnewlen(NULL,EVPOOL_CACHED_SDS_SIZE);
+        ep[j].dbid = 0;
+    }
+    server.dlru->cache5->eviction_pool = ep;
+
+    ep = zmalloc(sizeof(*ep)*EVPOOL_SIZE);
+    for (j = 0; j < EVPOOL_SIZE; j++) {
+        ep[j].idle = 0;
+        ep[j].key = NULL;
+        ep[j].cached = sdsnewlen(NULL,EVPOOL_CACHED_SDS_SIZE);
+        ep[j].dbid = 0;
+    }
+    server.dlru->cache10->eviction_pool = ep;
+
+    ep = zmalloc(sizeof(*ep)*EVPOOL_SIZE);
+    for (j = 0; j < EVPOOL_SIZE; j++) {
+        ep[j].idle = 0;
+        ep[j].key = NULL;
+        ep[j].cached = sdsnewlen(NULL,EVPOOL_CACHED_SDS_SIZE);
+        ep[j].dbid = 0;
+    }
+    server.dlru->cache16->eviction_pool = ep;
+}
+
 void evictionPoolAlloc(void) {
     struct evictionPoolEntry *ep;
     int j;
@@ -308,6 +365,8 @@ void evictionPoolAlloc(void) {
         ep[j].dbid = 0;
     }
     EvictionPoolLRU = ep;
+
+    miniCacheEvictionPoolAlloc();
 }
 
 /* This is a helper function for performEvictions(), it is used in order
@@ -318,6 +377,138 @@ void evictionPoolAlloc(void) {
  * We insert keys on place in ascending order, so keys with the smaller
  * idle time are on the left, and keys with the higher idle time on the
  * right. */
+
+// void populate_eviction_pool(miniCache* mini_cache) {
+//     struct evictionPoolEntry *pool = (struct evictionPoolEntry *)mini_cache->eviction_pool;
+//     sds key_arr [mini_cache->evict_sample_size];
+//     int count = get_multiple_mini_cache_key(mini_cache, key_arr, mini_cache->evict_sample_size);
+//     for (int i = 0; i < count; i++) {
+
+//     }
+
+// }
+
+int get_mini_cache_obj_count(miniCache* mini_cache) {
+    hashTableRow* ht_row;
+    int sum = 0;
+    for (int i = 0; i < HT_ROWS; i++) {
+        ht_row = mini_cache->Cache[i];
+        sum += ht_row->count;
+    }
+    return sum;
+}
+
+hashNode* get_mini_cache_key(miniCache* mini_cache, int idx) {
+    // go to the right row
+    int row_idx = 0;
+    hashTableRow* current_ht_row = mini_cache->Cache[row_idx];
+    int total_count = current_ht_row->count;
+    while (total_count-1 < idx) {
+        row_idx += 1;
+        if (row_idx >= HT_ROWS) return NULL; // exceed mini_cache size
+        current_ht_row = mini_cache->Cache[row_idx];
+        total_count += current_ht_row->count;
+    }
+    // now were at the correct row, follow the linked list to get the key
+    int node_idx = total_count - 1;
+    hashNode* current_node = current_ht_row->head;
+    while (node_idx < idx) {
+        current_node = current_node->next;
+        if (current_node == NULL) return NULL; // exceed mini_cache size 
+        node_idx += 1;
+    }
+    // now we should be at the correct node, return the key-val node
+    return current_node;
+}
+
+int get_multiple_mini_cache_key(miniCache* mini_cache, hashNode** node_arr, int expected) {
+    int count = 0;
+    int rand_idx;
+    hashNode* node;
+    int mini_cache_size = get_mini_cache_obj_count(mini_cache);
+    srand(time(0)); // same seed so no replication in random numbers
+    while (count < expected) {
+        if (mini_cache_size == 0)  return count;
+        rand_idx = rand() % expected; // this is secure to be differnt value every iteration
+        node = get_mini_cache_key(mini_cache, rand_idx);
+        if (node != NULL) {
+            node_arr[count] = node;
+            count += 1;
+            mini_cache_size -= 1;
+        } 
+    }
+    return count;
+}
+
+void dlruEvictionPoolPopulate(miniCache* mini_cache) {
+    int k, count;
+    struct evictionPoolEntry *pool = (struct evictionPoolEntry *)mini_cache->eviction_pool;
+    hashNode* node_arr [mini_cache->evict_sample_size];
+    count = get_multiple_mini_cache_key(mini_cache, node_arr, mini_cache->evict_sample_size);
+    for (int i = 0; i < count; i++) {
+        unsigned long long idle;
+        sds key;
+        // robj *o;
+
+        hashNode* node = node_arr[i];
+        key = node->key;
+
+        idle = estimateObjectIdleTime(node->val);
+        // insert the key-value inside the pool 
+
+        /* Insert the element inside the pool.
+         * First, find the first empty bucket or the first populated
+         * bucket that has an idle time smaller than our idle time. */
+        k = 0;
+        while (k < EVPOOL_SIZE &&
+               pool[k].key &&
+               pool[k].idle < idle) k++;
+        if (k == 0 && pool[EVPOOL_SIZE-1].key != NULL) {
+            /* Can't insert if the element is < the worst element we have
+             * and there are no empty buckets. */
+            continue;
+        } else if (k < EVPOOL_SIZE && pool[k].key == NULL) {
+            /* Inserting into empty position. No setup needed before insert. */
+        } else {
+            /* Inserting in the middle. Now k points to the first element
+             * greater than the element to insert.  */
+            if (pool[EVPOOL_SIZE-1].key == NULL) {
+                /* Free space on the right? Insert at k shifting
+                 * all the elements from k to end to the right. */
+
+                /* Save SDS before overwriting. */
+                sds cached = pool[EVPOOL_SIZE-1].cached;
+                memmove(pool+k+1,pool+k,
+                    sizeof(pool[0])*(EVPOOL_SIZE-k-1));
+                pool[k].cached = cached;
+            } else {
+                /* No free space on right? Insert at k-1 */
+                k--;
+                /* Shift all elements on the left of k (included) to the
+                 * left, so we discard the element with smaller idle time. */
+                sds cached = pool[0].cached; /* Save SDS before overwriting. */
+                if (pool[0].key != pool[0].cached) sdsfree(pool[0].key);
+                memmove(pool,pool+1,sizeof(pool[0])*k);
+                pool[k].cached = cached;
+            }
+        }
+
+        /* Try to reuse the cached SDS string allocated in the pool entry,
+         * because allocating and deallocating this object is costly
+         * (according to the profiler, not my fantasy. Remember:
+         * premature optimization bla bla bla. */
+        int klen = sdslen(key);
+        if (klen > EVPOOL_CACHED_SDS_SIZE) {
+            pool[k].key = sdsdup(key);
+        } else {
+            memcpy(pool[k].cached,key,klen+1);
+            sdssetlen(pool[k].cached,klen);
+            pool[k].key = pool[k].cached;
+        }
+        pool[k].idle = idle;
+
+    }
+}
 
 void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evictionPoolEntry *pool) {
     int j, k, count;
@@ -942,4 +1133,111 @@ update_metrics:
         }
     }
     return result;
+}
+
+int pop_from_mini_cache(sds key, miniCache* mini_cache, int hash) {
+    // return 1 for success pop, 0 otherwise
+    hashNode* prev = NULL;
+    hashNode* temp = NULL;
+    int row_idx = hash % HT_ROWS;
+    hashTableRow* ht_row = mini_cache->Cache[row_idx];
+    if (ht_row->head == NULL) {
+        return 0;
+    } 
+
+    // ht_row->head != NULL
+    if (ht_row->head->key == key) {
+        temp = ht_row->head;
+        ht_row->head = ht_row->head->next;
+        zfree(temp);
+        ht_row->count -= 1;
+        return 1;
+    }
+    // now first node is not NULL and is not the one, run the while loop
+    prev = ht_row->head;
+    temp = ht_row->head->next;
+
+    while (temp != NULL) {
+        if (temp->key == key) {
+            prev->next = temp->next;
+            zfree(temp);
+            ht_row->count -= 1;
+            return 1;
+        } else {
+            prev = temp;
+            temp = temp->next;
+        }
+
+    }
+    return 0;
+}
+
+void evict_from_mini_cache (miniCache* mini_cache) {
+    while (mini_cache->current_size >= mini_cache->max_size) {
+        struct evictionPoolEntry *pool = (evictionPoolEntry*) mini_cache->eviction_pool;
+
+        int k ;
+        // static unsigned int next_db = 0;
+        sds bestkey = NULL;
+        // int bestdbid;
+        // redisDb *db;
+        // dict *dict;
+        // dictEntry *de;
+
+        while(bestkey == NULL) {
+            // unsigned long total_keys = 0, keys;
+
+            /* We don't want to make local-db choices when expiring keys,
+                * so to start populate the eviction pool sampling keys from
+                * every DB. */
+            // for (i = 0; i < server.dbnum; i++) {
+            //     db = server.db+i;
+            //     dict = (server.maxmemory_policy & MAXMEMORY_FLAG_ALLKEYS) ?
+            //             db->dict : db->expires;
+            //     if ((keys = dictSize(dict)) != 0) {
+            //         // evictionPoolPopulate(i, dict, db->dict, pool);
+            //         total_keys += keys;
+            //     }
+            // }
+            dlruEvictionPoolPopulate(mini_cache);
+            // if (!mini_cache->) break; /* No keys to evict. */
+
+
+            /* Go backward from best to worst element to evict. */
+            for (k = EVPOOL_SIZE-1; k >= 0; k--) {
+                if (pool[k].key == NULL) continue;
+                // bestdbid = pool[k].dbid;
+
+                // if (server.maxmemory_policy & MAXMEMORY_FLAG_ALLKEYS) {
+                //     de = dictFind(server.db[bestdbid].dict,
+                //         pool[k].key);
+                // } else {
+                //     de = dictFind(server.db[bestdbid].expires,
+                //         pool[k].key);
+                // }
+
+                /* Remove the entry from the pool. */
+                // if (pool[k].key != pool[k].cached)
+                    // sdsfree(pool[k].key);
+                bestkey = pool[k].key;
+                pool[k].key = NULL;
+                pool[k].idle = 0;
+
+            }
+        }
+
+        // Great, now we pop the key-value node from the minicache
+        if (bestkey) {
+            int hash = dictGenHashFunction((unsigned char*)bestkey, strlen(bestkey));
+            pop_from_mini_cache(bestkey, mini_cache, hash);
+        }
+
+    }
+
+    
+}
+
+void performDLRUEvictions () {
+
+    
 }

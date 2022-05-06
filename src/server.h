@@ -1423,6 +1423,8 @@ typedef struct {
 #define CHILD_TYPE_MODULE 4
 
 // Dat mod
+
+
 // structures for DLRU
 
 #define HT_ROWS 20
@@ -1431,12 +1433,14 @@ typedef struct {
 
 typedef struct hashNode {
     sds key;
+    robj* val;
     struct hashNode *next;
 } hashNode;
 
 typedef struct hashTableRow {
     hashNode *head;
     hashNode *tail;
+    int count;
 } hashTableRow;
 
 typedef struct miniCache {
@@ -1446,6 +1450,9 @@ typedef struct miniCache {
     int stats_misses;
     int current_size;
     int max_size;
+    int evict_sample_size;
+    // void* eviction_pool;
+    void* eviction_pool;
 } miniCache;
 
 typedef struct DLRU {
@@ -1455,6 +1462,10 @@ typedef struct DLRU {
     miniCache *cache10;
     miniCache *cache16;
 } DLRU;
+
+
+// int get_multiple_mini_cache_key(miniCache* mini_cache, hashNode** node_arr, int expected);
+// int pop_from_mini_cache(void* key, void* mini_cache, int hash)
 
 // Dat mod ends
 
