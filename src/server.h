@@ -1466,6 +1466,9 @@ typedef struct DLRU {
 
 // int get_multiple_mini_cache_key(miniCache* mini_cache, hashNode** node_arr, int expected);
 // int pop_from_mini_cache(void* key, void* mini_cache, int hash)
+void push_to_DLRU(sds key, robj* val); 
+void search_in_DLRU(sds key);
+// void push_to_mini_cache(miniCache* mini_cache, sds key, robj* val);
 
 // Dat mod ends
 

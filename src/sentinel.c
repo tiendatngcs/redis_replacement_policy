@@ -4228,6 +4228,7 @@ void sentinelRoleCommand(client *c) {
 
 /* SENTINEL SET <mastername> [<option> <value> ...] */
 void sentinelSetCommand(client *c) {
+    printf("Sentinel set command\n");
     sentinelRedisInstance *ri;
     int j, changes = 0;
     int badarg = 0; /* Bad argument position for error reporting. */

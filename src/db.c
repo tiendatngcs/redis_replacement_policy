@@ -166,7 +166,15 @@ robj *lookupKeyWrite(redisDb *db, robj *key) {
     return lookupKeyWriteWithFlags(db, key, LOOKUP_NONE);
 }
 
+void DLRUSearch(robj* key) {
+    sds sds_key = sdsdup(key->ptr);
+    search_in_DLRU(sds_key);
+}
+
 robj *lookupKeyReadOrReply(client *c, robj *key, robj *reply) {
+    // Dat mod 
+    DLRUSearch(key);
+    // Dat mod
     robj *o = lookupKeyRead(c->db, key);
     if (!o) addReplyOrErrorObject(c, reply);
     return o;
@@ -241,12 +249,16 @@ void dbOverwrite(redisDb *db, robj *key, robj *val) {
     dictFreeVal(db->dict, &auxentry);
 }
 
-void DLRUAdd() {
+void DLRUAdd(robj* key, robj* val) {
     // Check if we need to 
+    sds sds_key = sdsdup(key->ptr);
+    push_to_DLRU(sds_key, val);
+    // push_to_mini_cache(server.dlru->cache1, sds_key, val);
 }
 
-void DLRUOverwrite() {
-
+void DLRUOverwrite(robj* key, robj* val) {
+    sds sds_key = sdsdup(key->ptr);
+    push_to_DLRU(sds_key, val);
 }
 
 
@@ -264,6 +276,7 @@ void DLRUOverwrite() {
  * The client 'c' argument may be set to NULL if the operation is performed
  * in a context where there is no clear client performing the operation. */
 void setKey(client *c, redisDb *db, robj *key, robj *val, int flags) {
+    // printf("setting key\n");
     int keyfound = 0;
 
     if (flags & SETKEY_ALREADY_EXIST)
@@ -273,10 +286,12 @@ void setKey(client *c, redisDb *db, robj *key, robj *val, int flags) {
 
     // TODO add key val here to minicache
     if (!keyfound) {
-        DLRUAdd(key);
+        printf("Set new key\n");
+        DLRUAdd(key, val);
         dbAdd(db,key,val);
     } else {
-        DLRUOverwrite(key);
+        printf("Set existing key\n");
+        DLRUOverwrite(key, val);
         dbOverwrite(db,key,val);
     }
     incrRefCount(val);

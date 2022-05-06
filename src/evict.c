@@ -1139,7 +1139,7 @@ int pop_from_mini_cache(sds key, miniCache* mini_cache, int hash) {
     // return 1 for success pop, 0 otherwise
     hashNode* prev = NULL;
     hashNode* temp = NULL;
-    int row_idx = hash % HT_ROWS;
+    int row_idx = abs(hash % HT_ROWS);
     hashTableRow* ht_row = mini_cache->Cache[row_idx];
     if (ht_row->head == NULL) {
         return 0;

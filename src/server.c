@@ -83,7 +83,7 @@ double R_Zero, R_PosInf, R_NegInf, R_Nan;
 
 /* Global vars */
 struct redisServer server; /* Server global state */
-static DLRU dlru;    /* dlru global state */
+// static DLRU dlru;    /* dlru global state */
 
 /*============================ Internal prototypes ========================== */
 
@@ -2376,6 +2376,7 @@ miniCache* init_a_mini_cache(int evic_sample_size) {
         ht_row->tail = NULL;
         ht_row->count = 0;
         mini_cache->Cache[i] = ht_row;
+        printf("ht_row %p \n", (void*)mini_cache->Cache[i]);
     }
     // for(int i = 0; i < EVPOOL_SIZE; i++) {
     //     mini_cache1->EvictionPool[i].idle = 0;
@@ -2432,8 +2433,12 @@ bool pass_DLRU_filter(int hash) {
 // }
 
 void push_to_mini_cache(hashNode* new_node, miniCache* mini_cache, int hash) {
-    int row_idx = hash % HT_ROWS;
+    printf("Pushing to mini cache\n");
+    int row_idx = abs(hash % HT_ROWS);
+    printf("key %p\n", (void*)(new_node->key));
+    printf("Row idx %d\n", row_idx);
     hashTableRow* ht_row = mini_cache->Cache[row_idx];
+    printf("Got ht_row %p \n", (void*)ht_row);
     if (ht_row->head == NULL) {
         ht_row->head = new_node;
         ht_row->tail = new_node;
@@ -2444,10 +2449,55 @@ void push_to_mini_cache(hashNode* new_node, miniCache* mini_cache, int hash) {
     ht_row->count += 1;
 }
 
+int search_in_mini_cache(sds key, miniCache* mini_cache, int hash) {
+    // return 1 for success pop, 0 otherwise
+    // hashNode* prev = NULL;
+    hashNode* temp = NULL;
+    int row_idx = abs(hash % HT_ROWS);
+    printf("key %p\n", (void*)key);
+    printf("hash %d\n", hash);
+    printf("row_idx %d\n", row_idx);
+    hashTableRow* ht_row = mini_cache->Cache[row_idx];
+    if (ht_row->head == NULL) {
+        // printf("a miss\n");
+        mini_cache->stats_misses++;
+        return 0;
+    } 
+
+    // ht_row->head != NULL
+    if (sdscmp(ht_row->head->key, key)  == 0) {
+        // printf("a hit\n");
+        mini_cache->stats_hits++;
+        return 1;
+    }
+    // now first node is not NULL and is not the one, run the while loop
+    // prev = ht_row->head;
+    temp = ht_row->head->next;
+
+    while (temp != NULL) {
+        if (temp->key == key) {
+            // printf("a hit\n");
+            mini_cache->stats_hits++;
+            return 1;
+        } else {
+            // prev = temp;
+            temp = temp->next;
+        }
+
+    }
+    // printf("a miss\n");
+    mini_cache->stats_misses++;
+    return 0;
+}
+
 void push_to_DLRU(sds key, robj* val) {
+    printf("pushing to DLRU\n");
     int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
+    printf("hash %d\n", hash);
     // filter for minicache
-    if (!pass_DLRU_filter(hash)) return; 
+    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!! Turn this on at Production !!!!!!!!!!!!!!!!!!!!!!!!
+    // if (!pass_DLRU_filter(hash)) return;
+    printf("Key pass DLRU filter\n");
     struct hashNode* new_node = new_hashNode(key, val);
     // int row_id = hash % SIZE;
     // if (dlru->cache1->Cache[row_id]->head == NULL) {
@@ -2457,25 +2507,45 @@ void push_to_DLRU(sds key, robj* val) {
     //     dlru->cache1->Cache[row_id]->tail->next = new_node;
     //     dlru->cache1->Cache[row_id]->tail = new_node;
     // }
-    push_to_mini_cache(new_node, dlru.cache1, hash);
-    push_to_mini_cache(new_node, dlru.cache2, hash);
-    push_to_mini_cache(new_node, dlru.cache5, hash);
-    push_to_mini_cache(new_node, dlru.cache10, hash);
-    push_to_mini_cache(new_node, dlru.cache16, hash);
+    printf("New node generated\n");
+    
+    push_to_mini_cache(new_node, server.dlru->cache1, hash);
+    push_to_mini_cache(new_node, server.dlru->cache2, hash);
+    push_to_mini_cache(new_node, server.dlru->cache5, hash);
+    push_to_mini_cache(new_node, server.dlru->cache10, hash);
+    push_to_mini_cache(new_node, server.dlru->cache16, hash);
 }
 
+void search_in_DLRU(sds key) {
+    // try to get from each minicache, update their hit miss counts
+    int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
+    // mini cache so we only take in portion of references
+    // if (!pass_DLRU_filter(hash)) return;
+
+
+    // look up in mini caches, adjust stats accordingly
+    search_in_mini_cache(key, server.dlru->cache1, hash);
+    search_in_mini_cache(key, server.dlru->cache2, hash);
+    search_in_mini_cache(key, server.dlru->cache5, hash);
+    search_in_mini_cache(key, server.dlru->cache10, hash);
+    search_in_mini_cache(key, server.dlru->cache16, hash);
+}
+
+
 // void pop_from_DLRU(sds key) {
+
+//     // try to get from each minicache, update their hit miss counts
 //     int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
 //     // mini cache so we only take in portion of references
 //     if (!pass_DLRU_filter(hash)) return;
 
 
 //     // TODO: there coule be a miss pop, find out what to do with it
-//     pop_from_mini_cache(key, dlru.cache1, hash);
-//     pop_from_mini_cache(key, dlru.cache2, hash);
-//     pop_from_mini_cache(key, dlru.cache5, hash);
-//     pop_from_mini_cache(key, dlru.cache10, hash);
-//     pop_from_mini_cache(key, dlru.cache16, hash);
+//     pop_from_mini_cache(key, server.dlru->cache1, hash);
+//     pop_from_mini_cache(key, server.dlru->cache2, hash);
+//     pop_from_mini_cache(key, server.dlru->cache5, hash);
+//     pop_from_mini_cache(key, server.dlru->cache10, hash);
+//     pop_from_mini_cache(key, server.dlru->cache16, hash);
 // }
 
 
@@ -3332,6 +3402,7 @@ int incrCommandStatsOnError(struct redisCommand *cmd, int flags) {
  *
  */
 void call(client *c, int flags) {
+    printf("calling command\n");
     long long dirty;
     monotime call_timer;
     uint64_t client_old_flags = c->flags;
@@ -3366,6 +3437,7 @@ void call(client *c, int flags) {
     server.in_nested_call++;
 
     elapsedStart(&call_timer);
+    printf("calling %s\n", c->cmd->declared_name);
     c->cmd->proc(c);
     const long duration = elapsedUs(call_timer);
     c->duration = duration;
@@ -3612,6 +3684,7 @@ void populateCommandMovableKeys(struct redisCommand *cmd) {
  * other operations can be performed by the caller. Otherwise
  * if C_ERR is returned the client was destroyed (i.e. after QUIT). */
 int processCommand(client *c) {
+    printf("process_command\n");
     if (!scriptIsTimedout()) {
         /* Both EXEC and EVAL call call() directly so there should be
          * no way in_exec or in_eval is 1.
