@@ -76,6 +76,9 @@ static int checkStringLength(client *c, long long size) {
 static int getExpireMillisecondsOrReply(client *c, robj *expire, int flags, int unit, long long *milliseconds);
 
 void setGenericCommand(client *c, int flags, robj *key, robj *val, robj *expire, int unit, robj *ok_reply, robj *abort_reply) {
+    // Dat mod
+    performDLRUEvictions();
+    // Dat mod ends
     printf("setGenericCommand\n");
     long long milliseconds = 0; /* initialized to avoid any harmness warning */
     int found = 0;

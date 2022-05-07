@@ -2493,7 +2493,7 @@ int search_in_mini_cache(sds key, miniCache* mini_cache, int hash) {
 
 void push_to_DLRU(sds key, robj* val) {
     // printf("pushing to DLRU\n");
-    int hash = dictGenHashFunction((unsigned char*)key, strlen(key));
+    int hash = dictGenHashFunction((void*)key, strlen(key));
     // printf("hash %d\n", hash);
     // filter for minicache
     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!! Turn this on at Production !!!!!!!!!!!!!!!!!!!!!!!!
@@ -4025,9 +4025,6 @@ int processCommand(client *c) {
 
     /* Exec the command */
 
-    // Dat mod
-    performDLRUEvictions();
-    // Dat mod ends
     if (c->flags & CLIENT_MULTI &&
         c->cmd->proc != execCommand &&
         c->cmd->proc != discardCommand &&

@@ -1202,6 +1202,7 @@ void evict_from_mini_cache (miniCache* mini_cache) {
             //     }
             // }
             dlruEvictionPoolPopulate(mini_cache);
+            printf("eviction pool populated\n");
             // if (!mini_cache->) break; /* No keys to evict. */
 
 
@@ -1231,13 +1232,13 @@ void evict_from_mini_cache (miniCache* mini_cache) {
         // Great, now we pop the key-value node from the minicache
         if (bestkey) {
             int hash = dictGenHashFunction((void*)bestkey, strlen(bestkey));
-            int result = pop_from_mini_cache(bestkey, mini_cache, hash);
-            if (result == 1) mini_cache->current_size -= 200;
+            // !!!!!!!!!!!!!!!!!!!! try out
+            // int result = pop_from_mini_cache(bestkey, mini_cache, hash);
+            // if (result == 1) mini_cache->current_size -= 200;
+            mini_cache->current_size -= 200;
         }
 
     }
-
-    
 }
 
 void performDLRUEvictions () {
