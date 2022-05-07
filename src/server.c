@@ -2400,6 +2400,7 @@ DLRU* InitDLRU() {
     dlru->cache5 = init_a_mini_cache(5);
     dlru->cache10 = init_a_mini_cache(10);
     dlru->cache16 = init_a_mini_cache(16);
+    dlru->gets_count = 0;
     return dlru;
 }
 

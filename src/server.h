@@ -1461,6 +1461,7 @@ typedef struct DLRU {
     miniCache *cache5;
     miniCache *cache10;
     miniCache *cache16;
+    int gets_count;
 } DLRU;
 
 

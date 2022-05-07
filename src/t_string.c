@@ -318,6 +318,10 @@ void psetexCommand(client *c) {
 int getGenericCommand(client *c) {
     robj *o;
 
+    // Dat mod
+    server.dlru->gets_count ++;
+    // Dat mod ends
+
     if ((o = lookupKeyReadOrReply(c,c->argv[1],shared.null[c->resp])) == NULL)
         return C_OK;
 

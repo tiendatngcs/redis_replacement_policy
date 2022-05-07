@@ -512,8 +512,35 @@ void dlruEvictionPoolPopulate(miniCache* mini_cache) {
     }
 }
 
+int select_maxmemory_samples () {
+    int nums[] = {1, 2, 5, 10, 16};
+    miniCache* mini_caches[] = {server.dlru->cache1,
+                                server.dlru->cache2,
+                                server.dlru->cache5,
+                                server.dlru->cache10,
+                                server.dlru->cache16};
+    int rt = 1;
+    int misses = 0;
+    for (int i = 0; i < 5; i++) {
+        if (mini_caches[i]->stats_misses > misses) {
+            misses = mini_caches[i]->stats_misses;
+            rt = nums[i];
+        }
+        mini_caches[i]->stats_hits = 0;
+        mini_caches[i]->stats_misses = 0;
+    }
+
+    return rt;
+}
+
 void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evictionPoolEntry *pool) {
     int j, k, count;
+
+    // adjust maxmemory_samples here 
+    if (server.dlru->gets_count != 0 && server.dlru->gets_count % 5000 == 0) {
+        server.maxmemory_samples = select_maxmemory_samples();
+    }
+
     dictEntry *samples[server.maxmemory_samples];
 
     count = dictGetSomeKeys(sampledict,samples,server.maxmemory_samples);
